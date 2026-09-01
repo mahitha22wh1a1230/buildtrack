@@ -1,42 +1,1116 @@
-const app=document.getElementById('app');
-let state={user:null,page:'dashboard',units:[],projects:[],selected:null,search:'',tab:'overview'};
-const $=(s,r=document)=>r.querySelector(s); const esc=s=>String(s??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
-const fmt=d=>d?new Date(d).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}):'—';
-const roleName=r=>r==='site_manager'?'Site Manager':r==='customer'?'Customer':'Admin';
-async function api(url,opt={}){const r=await fetch(url,opt);const data=await r.json().catch(()=>({}));if(!r.ok)throw new Error(data.error||'Something went wrong');return data}
-function toast(msg){let x=document.createElement('div');x.textContent=msg;x.style='position:fixed;right:20px;bottom:20px;z-index:99;background:#10233f;color:#fff;padding:13px 16px;border-radius:10px;box-shadow:0 10px 25px #0003';document.body.appendChild(x);setTimeout(()=>x.remove(),2600)}
-async function boot(){const m=await api('/api/me');if(m.user){state.user=m.user;state.page=state.user.role==='admin'?'dashboard':state.user.role==='site_manager'?'dashboard':'my-home';await load();}else renderLogin('admin');}
-function renderLogin(role='admin'){const roles=[['admin','Admin'],['site_manager','Site Manager'],['customer','Customer']];app.innerHTML=`<div class="login-shell"><section class="login-left"><div class="brand"><div class="brandmark">AC</div><span>BuildTrack</span></div><div><div class="badge blue" style="background:#203d66;color:#dbe8fb">Construction Operations Platform</div><h1>Every home.<br>Every stage.<br>One live system.</h1><p>Track apartments, villas and villaments from foundation to handover. Give site teams the tools to update work daily and customers a clear view of their own home.</p><div class="feature-list"><div>✓ Package-based handover: Bare-Bone, Semi-Finished, Fully Finished</div><div>✓ Daily progress updates with site photos</div><div>✓ Customer customization and change approvals</div><div>✓ Real-time ETA, issues, tasks and handover readiness</div></div></div></section><section class="login-right"><form class="login-card" id="loginForm"><div class="brand" style="margin:0 0 18px;color:#10233f"><div class="brandmark">AC</div><span>BuildTrack</span></div><h2 style="margin:0 0 6px">Sign in to your portal</h2><p class="muted" style="margin-top:0">Choose the workspace that matches your role.</p><div class="role-cards">${roles.map(x=>`<button type="button" class="role-card ${x[0]===role?'active':''}" data-role="${x[0]}">${x[1]}</button>`).join('')}</div><input type="hidden" name="role" value="${role}"><div class="field"><label>Email</label><input name="email" required value="${role==='admin'?'aarti@buildtrack.demo':role==='site_manager'?'arjun@buildtrack.demo':'rahul@buildtrack.demo'}"></div><div class="field" style="margin-top:12px"><label>Password</label><input type="password" name="password" required value="buildtrack"></div><button class="btn primary" style="width:100%;margin-top:16px">Sign in</button><div class="notice">Demo password for all sample accounts: <b>buildtrack</b></div><div id="loginErr" class="small-note" style="color:#b42318;margin-top:10px"></div></form></section></div>`;
-  document.querySelectorAll('[data-role]').forEach(b=>b.onclick=()=>renderLogin(b.dataset.role)); $('#loginForm').onsubmit=async e=>{e.preventDefault();const f=new FormData(e.target);try{const x=await api('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:f.get('email'),password:f.get('password'),expectedRole:f.get('role')})});state.user=x.user;state.page=x.user.role==='admin'?'dashboard':x.user.role==='site_manager'?'dashboard':'my-home';await load()}catch(err){$('#loginErr').textContent=err.message}};
+const app = document.getElementById('app');
+
+let state = {
+  user: null,
+  page: 'dashboard',
+  units: [],
+  projects: [],
+  selected: null,
+  search: '',
+  tab: 'overview'
+};
+
+const $ = (s, r = document) => r.querySelector(s);
+
+const esc = s =>
+  String(s ?? '').replace(/[&<>'"]/g, c => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    "'": '&#39;',
+    '"': '&quot;'
+  }[c]));
+
+const fmt = d =>
+  d
+    ? new Date(d).toLocaleDateString('en-IN', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric'
+      })
+    : '—';
+
+const roleName = r =>
+  r === 'site_manager'
+    ? 'Site Manager'
+    : r === 'customer'
+    ? 'Customer'
+    : 'Admin';
+
+async function api(url, opt = {}) {
+  const r = await fetch(url, opt);
+  const data = await r.json().catch(() => ({}));
+
+  if (!r.ok) {
+    throw new Error(data.error || 'Something went wrong');
+  }
+
+  return data;
 }
-async function load(){state.projects=await api('/api/projects');state.units=await api('/api/units');render();}
-function layout(content){const u=state.user;const nav=u.role==='admin'?[['dashboard','Dashboard','▦'],['projects','Projects','▣'],['homes','Homes','⌂'],['updates','Daily Updates','↻'],['custom','Customizations','✦'],['issues','Issues & Risks','!'],['tasks','Tasks','✓'],['reports','Reports','▤'],['team','Team','♙']]:u.role==='site_manager'?[['dashboard','Site Dashboard','▦'],['homes','My Site Homes','⌂'],['updates','Daily Updates','↻'],['tasks','Tasks','✓'],['issues','Issues & Risks','!']]:[['my-home','My Home','⌂'],['updates','Updates & Photos','↻'],['custom','My Customizations','✦'],['handover','Handover','✓']];
-  app.innerHTML=`<div class="app-shell"><aside class="sidebar"><div class="brand"><div class="brandmark">AC</div><span>BuildTrack</span></div><div class="role-pill">${roleName(u.role)} · ${esc(u.name)}</div><nav class="nav">${nav.map(n=>`<button class="${state.page===n[0]?'active':''}" data-page="${n[0]}">${n[2]} <span>${n[1]}</span></button>`).join('')}</nav><div class="sidebar-bottom"><button class="logout" id="logout">⇥ <span>Sign out</span></button></div></aside><main class="main"><header class="topbar"><div class="top-title">${pageTitle()}</div><div class="user-mini"><div style="text-align:right"><b>${esc(u.name)}</b><div class="small-note">${roleName(u.role)}</div></div><div class="avatar">${esc(u.name[0])}</div></div></header><section class="content">${content}</section></main><div class="mobile-nav">${nav.slice(0,5).map(n=>`<button data-page="${n[0]}">${n[2]}<br>${n[1]}</button>`).join('')}</div></div>`;
-  document.querySelectorAll('[data-page]').forEach(x=>x.onclick=async()=>{state.page=x.dataset.page;await load()});$('#logout').onclick=async()=>{await api('/api/logout',{method:'POST'});state.user=null;renderLogin('admin')};
+
+function toast(msg) {
+  const x = document.createElement('div');
+
+  x.textContent = msg;
+
+  x.style = `
+    position:fixed;
+    right:20px;
+    bottom:20px;
+    z-index:99;
+    background:#10233f;
+    color:#fff;
+    padding:13px 16px;
+    border-radius:10px;
+    box-shadow:0 10px 25px #0003;
+  `;
+
+  document.body.appendChild(x);
+
+  setTimeout(() => x.remove(), 2600);
 }
-function pageTitle(){const map={dashboard:state.user.role==='admin'?'Portfolio Overview':state.user.role==='site_manager'?'Site Operations':'My Home',projects:'Projects',homes:'Homes & Units',updates:'Daily Site Updates',custom:'Customizations & Change Requests',issues:'Issues & Risks',tasks:'Tasks & Schedule',reports:'Reports & Delivery',team:'Team & Roles','my-home':'My Home','handover':'Handover Center'};return map[state.page]||'BuildTrack'}
-function statCards(d){const s=d.stats;return `<div class="grid grid4"><div class="card stat"><div><div class="label">${state.user.role==='customer'?'Homes':'Projects'}</div><h3>${s.projects}</h3><div class="small-note">Visible to you</div></div><div class="iconbox">▦</div></div><div class="card stat"><div><div class="label">Units / Homes</div><h3>${s.units}</h3><div class="small-note">Tracked individually</div></div><div class="iconbox">⌂</div></div><div class="card stat"><div><div class="label">Average Progress</div><h3>${s.avg}%</h3><div class="progress"><span style="width:${s.avg}%"></span></div></div><div class="iconbox">↗</div></div><div class="card stat"><div><div class="label">Open Issues</div><h3>${s.issues}</h3><div class="small-note">Affecting delivery</div></div><div class="iconbox">!</div></div></div>`}
-async function dashboard(){const d=await api('/api/dashboard');return `${statCards(d)}<div style="height:18px"></div><div class="two-col"><div class="card"><div class="section-title"><h2>${state.user.role==='site_manager'?'My Site Progress':'Project Portfolio'}</h2><button class="btn small" onclick="state.page='homes';load()">View homes</button></div><div class="grid grid2">${state.projects.map(p=>`<div class="project-card"><div><h3>${esc(p.name)}</h3><div class="small-note">${esc(p.type)} · ${esc(p.location||'')}</div></div><div class="project-meta"><span>${p.unit_count} units</span><span>${p.avg_progress||0}%</span></div><div class="progress"><span style="width:${p.avg_progress||0}%"></span></div><div class="project-meta"><span>Manager: ${esc(p.manager_name||'Unassigned')}</span><span>${esc(p.status)}</span></div></div>`).join('')}</div></div><div class="card"><div class="section-title"><h2>Delivery watch</h2></div>${state.units.slice().sort((a,b)=>a.eta.localeCompare(b.eta)).slice(0,5).map(u=>`<div class="check"><div><b>${esc(u.code)}</b><div class="small-note">${esc(u.package)} · ${esc(u.current_stage)}</div></div><div style="text-align:right"><b>${fmt(u.eta)}</b><div class="small-note">${u.progress}% complete</div></div></div>`).join('')}</div></div><div style="height:18px"></div><div class="card"><div class="section-title"><h2>Recent daily updates</h2><button class="btn small" onclick="state.page='updates';load()">Open feed</button></div>${d.updates.slice(0,6).map(x=>`<div class="update"><div class="update-head"><b>${esc(x.title)}</b><span class="small-note">${fmt(x.created_at)}</span></div><div class="small-note">${esc(x.note)}</div></div>`).join('')}</div>`}
-function homes(){let rows=state.units.filter(u=>!state.search||(`${u.code} ${u.customer_name||''} ${u.project_name}`).toLowerCase().includes(state.search.toLowerCase()));return `<div class="page-head"><div><h1>Homes & Units</h1><div class="muted">Track every house independently, even inside the same apartment complex.</div></div><div class="toolbar"><input class="btn search" placeholder="Search home, customer or project" value="${esc(state.search)}" id="searchHomes">${state.user.role==='admin'?'<button class="btn primary" onclick="openCreateUnit()">+ Add home</button>':''}</div></div><div class="card"><div class="table-wrap"><table class="table"><thead><tr><th>Home</th><th>Project</th><th>Customer</th><th>Package</th><th>Current stage</th><th>Progress</th><th>Expected delivery</th><th>Status</th><th></th></tr></thead><tbody>${rows.map(u=>`<tr><td><b>${esc(u.code)}</b><div class="small-note">${esc(u.type)} · Floor ${esc(u.floor)}</div></td><td>${esc(u.project_name)}</td><td>${esc(u.customer_name||'Unassigned')}</td><td><span class="badge ${u.package==='Fully Finished'?'blue':u.package==='Semi-Finished'?'orange':'green'}">${esc(u.package)}</span></td><td>${esc(u.current_stage)}<div class="small-note">handover after ${esc(u.delivery_stage)}</div></td><td style="min-width:130px"><div class="progress"><span style="width:${u.progress}%"></span></div><div class="small-note">${u.progress}%</div></td><td><b>${fmt(u.eta)}</b></td><td><span class="badge ${u.status.includes('Ready')?'green':'blue'}">${esc(u.status)}</span></td><td><button class="btn small" onclick="openUnit(${u.id})">Open</button></td></tr>`).join('')}</tbody></table></div></div>`}
-function unitDetail(u){const stageRows=u.stages.map(s=>`<div class="timeline-item"><div class="dot ${s.status==='Completed'?'done':s.status==='In Progress'?'live':''}"></div><div><h4>${esc(s.name)} ${s.status==='Completed'?'✓':s.status==='In Progress'?'•':''}</h4><p>${esc(s.status)} · Planned ${fmt(s.planned_date)}${s.completed_date?' · Completed '+fmt(s.completed_date):''}</p></div></div>`).join('');const canManage=['admin','site_manager'].includes(state.user.role);return `<div class="page-head"><div><button class="btn small" onclick="closeUnit()">← Back</button><h1 style="margin-top:12px">${esc(u.code)} · ${esc(u.project_name)}</h1><div class="muted">${esc(u.type)} · Floor ${esc(u.floor)} · ${esc(u.package)} · Customer: ${esc(u.customer_name||'Unassigned')}</div></div><div class="toolbar">${canManage?`<button class="btn primary" onclick="openUpdate(${u.id})">+ Daily update</button>`:''}<button class="btn gold" onclick="openCustomization(${u.id})">+ Change request</button></div></div><div class="grid grid4"><div class="card stat"><div><div class="label">Progress</div><h3>${u.progress}%</h3><div class="progress"><span style="width:${u.progress}%"></span></div></div></div><div class="card stat"><div><div class="label">Expected handover</div><h3 style="font-size:22px">${fmt(u.eta)}</h3><div class="small-note">Based on ${esc(u.package)} scope + changes + issues</div></div></div><div class="card stat"><div><div class="label">Handover stage</div><h3 style="font-size:22px">${esc(u.delivery_stage)}</h3><div class="small-note">Customer can receive at this scope</div></div></div><div class="card stat"><div><div class="label">Current stage</div><h3 style="font-size:22px">${esc(u.current_stage)}</h3><div class="small-note">${esc(u.status)}</div></div></div></div><div style="height:18px"></div><div class="two-col"><div class="card"><div class="section-title"><h2>Construction lifecycle</h2>${canManage?`<button class="btn small" onclick="openStage(${u.id})">Update stage</button>`:''}</div><div class="timeline">${stageRows}</div></div><div><div class="card"><div class="section-title"><h2>Customer customizations</h2></div>${u.custom.length?u.custom.map(c=>`<div class="check"><div><b>${esc(c.title)}</b><div class="small-note">${esc(c.details)}</div><div class="small-note">${esc(c.cost||'Cost pending')} · +${c.impact_days} days</div></div><div><span class="badge ${c.status==='Approved'?'green':c.status==='Rejected'?'red':'orange'}">${esc(c.status)}</span>${canManage?`<div style="margin-top:7px"><button class="btn small" onclick="changeCust(${c.id},'Approved')">Approve</button></div>`:''}</div></div>`).join(''):'<div class="empty">No change requests yet.</div>'}</div><div style="height:18px"></div><div class="card"><div class="section-title"><h2>Recent site updates</h2></div>${u.updates.length?u.updates.map(x=>`<div class="update">${x.photo?`<img class="photo" src="${x.photo}">`:''}<div class="update-head" style="margin-top:${x.photo?'9px':'0'}"><b>${esc(x.title)}</b><span class="small-note">${fmt(x.created_at)}</span></div><div class="small-note">${esc(x.note)}</div><div class="small-note">Posted by ${esc(x.author_name)}</div></div>`).join(''):'<div class="empty">No updates yet.</div>'}</div></div></div>`}
-async function openUnit(id){state.selected=await api('/api/units/'+id);state.page='unit';render()};function closeUnit(){state.selected=null;state.page=state.user.role==='customer'?'my-home':'homes';load()}
-function updates(){return `<div class="page-head"><div><h1>Daily Site Updates</h1><div class="muted">Coordinators post what happened today, with photos and notes customers can see remotely.</div></div><div class="toolbar">${['admin','site_manager'].includes(state.user.role)?'<button class="btn primary" onclick="openUpdate()">+ Post update</button>':''}</div></div><div class="grid grid2">${state.units.map(u=>`<div class="card"><div class="section-title"><h2>${esc(u.code)} · ${esc(u.project_name)}</h2><button class="btn small" onclick="openUnit(${u.id})">View</button></div><div class="small-note">${esc(u.current_stage)} · ${u.progress}% · ETA ${fmt(u.eta)}</div>${u.last_update?u.last_update:''}<div style="margin-top:12px"><button class="btn small" onclick="openUnit(${u.id})">Open timeline & photos</button></div></div>`).join('')}</div>`}
-function customPage(){let items=[];state.units.forEach(u=>{if(u.customer_id===state.user.id||['admin','site_manager'].includes(state.user.role))items.push(u)});return `<div class="page-head"><div><h1>Customizations & Change Requests</h1><div class="muted">Keep customer choices inside the construction workflow so scope and delivery dates stay visible.</div></div></div><div class="card"><div class="table-wrap"><table class="table"><thead><tr><th>Home</th><th>Package</th><th>Customer</th><th>Current stage</th><th>ETA</th><th>Action</th></tr></thead><tbody>${items.map(u=>`<tr><td><b>${esc(u.code)}</b><div class="small-note">${esc(u.project_name)}</div></td><td>${esc(u.package)}</td><td>${esc(u.customer_name||'')}</td><td>${esc(u.current_stage)}</td><td>${fmt(u.eta)}</td><td><button class="btn small" onclick="openCustomization(${u.id})">${state.user.role==='customer'?'Request change':'Manage requests'}</button></td></tr>`).join('')}</tbody></table></div></div>`}
-async function issues(){const rows=await api('/api/issues');return `<div class="page-head"><div><h1>Issues & Risks</h1><div class="muted">Track blockers that can change the expected delivery date.</div></div><button class="btn primary" onclick="openIssue()">+ Log issue</button></div><div class="card"><div class="table-wrap"><table class="table"><thead><tr><th>Issue</th><th>Project / Home</th><th>Severity</th><th>Status</th><th>Impact</th><th>Created</th></tr></thead><tbody>${rows.map(i=>`<tr><td><b>${esc(i.title)}</b><div class="small-note">${esc(i.details)}</div></td><td>${esc(i.project_name)} / ${esc(i.unit_code||'Project')}</td><td><span class="badge ${i.severity==='High'?'red':i.severity==='Medium'?'orange':'blue'}">${i.severity}</span></td><td>${i.status}</td><td>+${i.impact_days} days</td><td>${fmt(i.created_at)}</td></tr>`).join('')}</tbody></table></div></div>`}
-async function tasks(){const rows=await api('/api/tasks');return `<div class="page-head"><div><h1>Tasks & Schedule</h1><div class="muted">Site teams see what is due, who owns it and which home it affects.</div></div></div><div class="card"><div class="table-wrap"><table class="table"><thead><tr><th>Task</th><th>Home</th><th>Stage</th><th>Assignee</th><th>Due</th><th>Status</th><th></th></tr></thead><tbody>${rows.map(t=>`<tr><td><b>${esc(t.title)}</b><div class="small-note">${esc(t.notes||'')}</div></td><td>${esc(t.unit_code)}</td><td>${esc(t.stage)}</td><td>${esc(t.assignee_name||'')}</td><td>${fmt(t.due_date)}</td><td><span class="badge ${t.status==='Done'?'green':t.status==='In Progress'?'blue':'gray'}">${esc(t.status)}</span></td><td><button class="btn small" onclick="taskStatus(${t.id},'${t.status==='To Do'?'In Progress':t.status==='In Progress'?'Done':'To Do'}')">Advance</button></td></tr>`).join('')}</tbody></table></div></div>`}
-async function reports(){const rows=await api('/api/report');return `<div class="page-head"><div><h1>Reports & Delivery</h1><div class="muted">Portfolio-level visibility for handovers and construction progress.</div></div><button class="btn gold" onclick="downloadReport()">Export CSV</button></div><div class="card"><div class="table-wrap"><table class="table"><thead><tr><th>Project</th><th>Type</th><th>Homes</th><th>Avg progress</th><th>Ready</th><th>Earliest delivery</th><th>Latest delivery</th></tr></thead><tbody>${rows.map(r=>`<tr><td><b>${esc(r.project)}</b></td><td>${esc(r.type)}</td><td>${r.units}</td><td>${r.avg_progress||0}%</td><td>${r.ready||0}</td><td>${fmt(r.earliest_delivery)}</td><td>${fmt(r.latest_delivery)}</td></tr>`).join('')}</tbody></table></div></div><div style="height:18px"></div><div class="card"><h2 style="margin-top:0">How ETA is calculated</h2><div class="checklist"><div class="check"><span>1. Base delivery plan for the home</span><b>+</b></div><div class="check"><span>2. Approved / in-progress customization impact</span><b>+</b></div><div class="check"><span>3. Open or monitored issue impact</span><b>+</b></div><div class="check"><span>4. Existing delay days</span><b>=</b></div><div class="check"><span><b>Updated expected handover date</b></span><span class="badge green">Live</span></div></div></div>`}
-async function team(){const rows=await api('/api/users');return `<div class="page-head"><div><h1>Team & Roles</h1><div class="muted">Separate permissions keep admin, site managers and customers focused on the right information.</div></div></div><div class="card"><div class="table-wrap"><table class="table"><thead><tr><th>Name</th><th>Role</th><th>Email</th><th>Phone</th><th>Status</th></tr></thead><tbody>${rows.map(x=>`<tr><td><b>${esc(x.name)}</b></td><td><span class="badge blue">${roleName(x.role)}</span></td><td>${esc(x.email)}</td><td>${esc(x.phone||'')}</td><td>${x.active?'Active':'Disabled'}</td></tr>`).join('')}</tbody></table></div></div>`}
-async function customerHome(){const u=state.units[0];if(!u)return `<div class="empty">No home is assigned to this account.</div>`;const d=state.selected||await api('/api/units/'+u.id);state.selected=d;return `<div class="customer-hero"><div class="small-note" style="color:#c9d5e7">YOUR HOME · ${esc(d.project_name)}</div><h1 style="margin:8px 0">${esc(d.code)}</h1><div class="muted">${esc(d.type)} · ${esc(d.package)} package · ${esc(d.current_stage)} in progress</div><div class="kpi-line"><div><b>${d.progress}%</b><span class="small-note" style="color:#c9d5e7">Overall progress</span></div><div><b>${fmt(d.eta)}</b><span class="small-note" style="color:#c9d5e7">Expected handover</span></div><div><b>${esc(d.delivery_stage)}</b><span class="small-note" style="color:#c9d5e7">Your handover scope</span></div></div></div><div style="height:18px"></div><div class="two-col"><div class="card"><div class="section-title"><h2>Construction progress</h2><button class="btn small" onclick="state.page='updates';load()">All updates</button></div><div class="timeline">${d.stages.map(s=>`<div class="timeline-item"><div class="dot ${s.status==='Completed'?'done':s.status==='In Progress'?'live':''}"></div><div><h4>${esc(s.name)}</h4><p>${esc(s.status)} · ${s.status==='Completed'?'Completed '+fmt(s.completed_date):'Planned '+fmt(s.planned_date)}</p></div></div>`).join('')}</div></div><div><div class="card"><div class="section-title"><h2>Latest site photos & notes</h2></div>${d.updates.slice(0,3).map(x=>`<div class="update">${x.photo?`<img class="photo" src="${x.photo}">`:''}<div class="update-head"><b>${esc(x.title)}</b><span class="small-note">${fmt(x.created_at)}</span></div><div class="small-note">${esc(x.note)}</div></div>`).join('')}</div><div style="height:18px"></div><div class="card"><div class="section-title"><h2>Need a change?</h2></div><p class="muted" style="font-size:13px">Request an addition, removal or design change while work is still in progress. The request is routed for review and its time impact is reflected in your ETA after approval.</p><button class="btn gold" onclick="openCustomization(${d.id})">Request a customization</button></div></div></div>`}
-async function handover(){const d=state.selected||await api('/api/units/'+state.units[0].id);state.selected=d;return `<div class="page-head"><div><h1>Handover Center</h1><div class="muted">A clear finish line for your ${esc(d.code)}.</div></div></div><div class="grid grid2"><div class="card"><h2 style="margin-top:0">Handover scope</h2><div class="checklist">${d.stages.filter(s=>s.seq<=d.stages.find(x=>x.name===d.delivery_stage).seq).map(s=>`<div class="check"><span>${esc(s.name)}</span><span class="badge ${s.status==='Completed'?'green':s.status==='In Progress'?'blue':'gray'}">${esc(s.status)}</span></div>`).join('')}</div></div><div class="card"><h2 style="margin-top:0">Expected delivery</h2><div style="font-size:34px;font-weight:800">${fmt(d.eta)}</div><p class="muted">The date changes when approved customizations or tracked issues add time to the workstream.</p><div class="progress"><span style="width:${d.progress}%"></span></div><p class="small-note">${d.progress}% complete</p></div></div>`}
-function modal(title,body){let m=document.getElementById('modal');if(!m){m=document.createElement('div');m.id='modal';m.className='modal';document.body.appendChild(m)}m.innerHTML=`<div class="modal-box"><div class="modal-head"><h2 style="margin:0">${title}</h2><button class="close" onclick="closeModal()">×</button></div>${body}</div>`;m.classList.add('open')}
-function closeModal(){document.getElementById('modal')?.classList.remove('open')}
-function openStage(id){const u=state.selected||state.units.find(x=>x.id===id);modal('Update construction stage',`<form id="stageForm"><div class="field"><label>Current stage</label><select name="stage">${u.stages.map(s=>`<option ${s.name===u.current_stage?'selected':''}>${esc(s.name)}</option>`).join('')}</select></div><div class="field" style="margin-top:12px"><label>Status</label><select name="status"><option>In Progress</option><option>Completed</option></select></div><button class="btn primary" style="margin-top:16px">Save stage update</button></form>`);$('#stageForm').onsubmit=async e=>{e.preventDefault();const f=new FormData(e.target);await api('/api/units/'+id+'/stage',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({stage:f.get('stage'),status:f.get('status')})});closeModal();toast('Construction stage updated');state.selected=null;await load();openUnit(id)} }
-function openUpdate(id){modal('Post a daily site update',`<form id="updateForm" enctype="multipart/form-data"><div class="field"><label>Home</label><select name="unit_id" required>${state.units.map(u=>`<option value="${u.id}" ${u.id===id?'selected':''}>${esc(u.code)} · ${esc(u.project_name)}</option>`).join('')}</select></div><div class="field" style="margin-top:12px"><label>Update title</label><input name="title" required placeholder="e.g. Electrical work completed"></div><div class="field" style="margin-top:12px"><label>What happened today?</label><textarea name="note" required placeholder="Describe completed work, next step, measurements or any issue."></textarea></div><div class="field" style="margin-top:12px"><label>Site photo</label><input name="photo" type="file" accept="image/*"></div><button class="btn primary" style="margin-top:16px">Publish update</button></form>`);$('#updateForm').onsubmit=async e=>{e.preventDefault();const fd=new FormData(e.target);await api('/api/updates',{method:'POST',body:fd});closeModal();toast('Daily update published to the customer');await load()}}
-function openCustomization(id){const u=state.units.find(x=>x.id===id)||state.selected;modal('Create a customization / change request',`<form id="custForm"><div class="field"><label>Home</label><select name="unit_id">${state.units.filter(x=>x.customer_id===state.user.id||['admin','site_manager'].includes(state.user.role)).map(x=>`<option value="${x.id}" ${x.id===id?'selected':''}>${esc(x.code)} · ${esc(x.project_name)}</option>`).join('')}</select></div><div class="field" style="margin-top:12px"><label>Request title</label><input name="title" required placeholder="e.g. Remove wall light / add wardrobe / change tile"></div><div class="field" style="margin-top:12px"><label>Details</label><textarea name="details" required placeholder="Explain exactly what you want changed."></textarea></div><div class="form-grid" style="margin-top:12px"><div class="field"><label>Estimated cost</label><input name="cost" placeholder="₹"></div><div class="field"><label>Estimated time impact (days)</label><input name="impact_days" type="number" min="0" value="0"></div></div><button class="btn primary" style="margin-top:16px">Submit request</button></form>`);$('#custForm').onsubmit=async e=>{e.preventDefault();const f=new FormData(e.target);await api('/api/customizations',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.fromEntries(f))});closeModal();toast('Change request submitted');await load()}}
-async function changeCust(id,status){await api('/api/customizations/'+id+'/status',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({status})});toast('Customization status updated');await load();if(state.selected)openUnit(state.selected.id)}
-function openIssue(){modal('Log an issue / delivery risk',`<form id="issueForm"><div class="field"><label>Project</label><select name="project_id">${state.projects.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('')}</select></div><div class="field" style="margin-top:12px"><label>Home (optional)</label><select name="unit_id"><option value="">Project-level</option>${state.units.map(u=>`<option value="${u.id}">${esc(u.code)} · ${esc(u.project_name)}</option>`).join('')}</select></div><div class="field" style="margin-top:12px"><label>Issue</label><input name="title" required></div><div class="field" style="margin-top:12px"><label>Details</label><textarea name="details"></textarea></div><div class="form-grid" style="margin-top:12px"><div class="field"><label>Severity</label><select name="severity"><option>Low</option><option selected>Medium</option><option>High</option></select></div><div class="field"><label>Impact days</label><input type="number" name="impact_days" value="0" min="0"></div></div><button class="btn primary" style="margin-top:16px">Log issue</button></form>`);$('#issueForm').onsubmit=async e=>{e.preventDefault();const f=new FormData(e.target);await api('/api/issues',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.fromEntries(f))});closeModal();toast('Issue logged');await load()}}
-async function taskStatus(id,status){await api('/api/tasks/'+id+'/status',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({status})});toast('Task updated');await load()}
-function openCreateUnit(){modal('Add a new home / apartment / villa',`<form id="unitForm"><div class="form-grid"><div class="field"><label>Project</label><select name="project_id">${state.projects.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('')}</select></div><div class="field"><label>Unit code</label><input name="code" placeholder="A-301" required></div><div class="field"><label>Property type</label><select name="type"><option>Apartment</option><option>Villa</option><option>Villament</option><option>Independent House</option></select></div><div class="field"><label>Floor</label><input name="floor"></div><div class="field"><label>Package</label><select name="package"><option>Bare-Bone</option><option>Semi-Finished</option><option>Fully Finished</option></select></div><div class="field"><label>Base delivery date</label><input type="date" name="base_delivery" required></div></div><button class="btn primary" style="margin-top:16px">Create home</button></form>`);$('#unitForm').onsubmit=async e=>{e.preventDefault();const f=new FormData(e.target);await api('/api/units',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.fromEntries(f))});closeModal();toast('Home added');await load()}}
-function downloadReport(){api('/api/report').then(rows=>{const csv=['Project,Type,Homes,Average Progress,Ready,Earliest Delivery,Latest Delivery',...rows.map(r=>[r.project,r.type,r.units,r.avg_progress||0,r.ready||0,r.earliest_delivery,r.latest_delivery].map(x=>'"'+String(x??'').replace(/"/g,'""')+'"').join(','))].join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='buildtrack-report.csv';a.click()})}
-async function render(){if(state.page==='unit'&&state.selected){layout(unitDetail(state.selected));return}let content='';if(state.page==='dashboard')content=await dashboard();else if(state.page==='homes')content=homes();else if(state.page==='updates')content=updates();else if(state.page==='custom')content=customPage();else if(state.page==='issues')content=await issues();else if(state.page==='tasks')content=await tasks();else if(state.page==='reports')content=await reports();else if(state.page==='team')content=await team();else if(state.page==='my-home')content=await customerHome();else if(state.page==='handover')content=await handover();else if(state.page==='projects')content=homes();layout(content);if($('#searchHomes'))$('#searchHomes').oninput=e=>{state.search=e.target.value;render()}}
-boot();
+
+
+/* =========================================================
+   LOGIN
+========================================================= */
+
+async function boot() {
+  try {
+    const m = await api('/api/me');
+
+    if (m.user) {
+      state.user = m.user;
+
+      state.page =
+        state.user.role === 'customer'
+          ? 'my-home'
+          : 'dashboard';
+
+      await load();
+    } else {
+      renderLogin('admin');
+    }
+  } catch (err) {
+    renderLogin('admin');
+  }
+}
+
+
+function renderLogin(role = 'admin') {
+
+  const roles = [
+    ['admin', 'Admin'],
+    ['site_manager', 'Site Manager'],
+    ['customer', 'Customer']
+  ];
+
+  const email =
+    role === 'admin'
+      ? 'aarti@buildtrack.demo'
+      : role === 'site_manager'
+      ? 'arjun@buildtrack.demo'
+      : 'rahul@buildtrack.demo';
+
+  app.innerHTML = `
+    <div class="login-shell">
+
+      <section class="login-left">
+
+        <div class="brand">
+          <div class="brandmark">A</div>
+          <span>BuildTrack</span>
+        </div>
+
+        <div>
+
+          <div
+            class="badge blue"
+            style="background:#203d66;color:#dbe8fb"
+          >
+            Construction Operations Platform
+          </div>
+
+          <h1>
+            Every home.<br>
+            Every stage.<br>
+            One live system.
+          </h1>
+
+          <p>
+            Track apartments, villas and villaments from foundation
+            to handover. Give site teams the tools to update work
+            daily and customers a clear view of their own home.
+          </p>
+
+          <div class="feature-list">
+            <div>✓ Package-based handover: Bare-Bone, Semi-Finished, Fully Finished</div>
+            <div>✓ Daily progress updates with site photos</div>
+            <div>✓ Customer customization and change approvals</div>
+            <div>✓ Real-time ETA, issues, tasks and handover readiness</div>
+          </div>
+
+        </div>
+
+      </section>
+
+
+      <section class="login-right">
+
+        <form class="login-card" id="loginForm">
+
+          <div
+            class="brand"
+            style="margin:0 0 18px;color:#10233f"
+          >
+            <div class="brandmark">A</div>
+            <span>BuildTrack</span>
+          </div>
+
+          <h2 style="margin:0 0 6px">
+            Sign in to your portal
+          </h2>
+
+          <p class="muted" style="margin-top:0">
+            Choose the workspace that matches your role.
+          </p>
+
+
+          <div class="role-cards">
+
+            ${roles.map(x => `
+              <button
+                type="button"
+                class="role-card ${x[0] === role ? 'active' : ''}"
+                data-role="${x[0]}"
+              >
+                ${x[1]}
+              </button>
+            `).join('')}
+
+          </div>
+
+
+          <input
+            type="hidden"
+            name="role"
+            value="${role}"
+          >
+
+
+          <div class="field">
+
+            <label>Email</label>
+
+            <input
+              name="email"
+              type="email"
+              required
+              value="${email}"
+            >
+
+          </div>
+
+
+          <div
+            class="field"
+            style="margin-top:12px"
+          >
+
+            <label>Password</label>
+
+            <input
+              name="password"
+              type="password"
+              required
+              value="buildtrack"
+            >
+
+          </div>
+
+
+          <button
+            class="btn primary"
+            style="width:100%;margin-top:16px"
+          >
+            Sign in
+          </button>
+
+
+          <div class="notice">
+            Demo password for all sample accounts:
+            <b>buildtrack</b>
+          </div>
+
+
+          <div
+            id="loginErr"
+            class="small-note"
+            style="color:#b42318;margin-top:10px"
+          ></div>
+
+        </form>
+
+      </section>
+
+    </div>
+  `;
+
+
+  document.querySelectorAll('[data-role]').forEach(b => {
+
+    b.onclick = () => {
+      renderLogin(b.dataset.role);
+    };
+
+  });
+
+
+  $('#loginForm').onsubmit = async e => {
+
+    e.preventDefault();
+
+    const f = new FormData(e.target);
+
+    try {
+
+      const x = await api('/api/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          email: f.get('email'),
+          password: f.get('password'),
+          expectedRole: f.get('role')
+        })
+      });
+
+      state.user = x.user;
+
+      state.page =
+        x.user.role === 'customer'
+          ? 'my-home'
+          : 'dashboard';
+
+      await load();
+
+    } catch (err) {
+
+      $('#loginErr').textContent = err.message;
+
+    }
+
+  };
+}
+
+
+/* =========================================================
+   DATA
+========================================================= */
+
+async function load() {
+
+  state.projects = await api('/api/projects');
+  state.units = await api('/api/units');
+
+  render();
+}
+
+
+/* =========================================================
+   PROFILE MENU
+========================================================= */
+
+function closeProfileMenu() {
+
+  const menu = $('#profileMenu');
+
+  if (menu) {
+    menu.classList.remove('open');
+  }
+
+}
+
+
+function showProfile() {
+
+  const u = state.user;
+
+  openModal(`
+    <div class="modal-head">
+      <div>
+        <h2 style="margin:0">My Profile</h2>
+        <div class="small-note">
+          Your BuildTrack account
+        </div>
+      </div>
+
+      <button
+        class="close"
+        onclick="closeModal()"
+      >
+        ×
+      </button>
+    </div>
+
+    <div class="profile-menu-head"
+         style="border:0;padding:10px 0">
+
+      <div class="avatar large">
+        ${esc(u.name?.[0] || 'A')}
+      </div>
+
+      <div>
+        <h3 style="margin:0">
+          ${esc(u.name)}
+        </h3>
+
+        <div class="small-note">
+          ${roleName(u.role)}
+        </div>
+      </div>
+
+    </div>
+
+    <div class="checklist">
+
+      <div class="check">
+        <span>Name</span>
+        <b>${esc(u.name)}</b>
+      </div>
+
+      <div class="check">
+        <span>Role</span>
+        <b>${roleName(u.role)}</b>
+      </div>
+
+      <div class="check">
+        <span>Email</span>
+        <b>${esc(u.email)}</b>
+      </div>
+
+      <div class="check">
+        <span>Phone</span>
+        <b>${esc(u.phone || 'Not available')}</b>
+      </div>
+
+    </div>
+  `);
+
+}
+
+
+function showSettings() {
+
+  openModal(`
+    <div class="modal-head">
+
+      <div>
+        <h2 style="margin:0">
+          Settings
+        </h2>
+
+        <div class="small-note">
+          BuildTrack account settings
+        </div>
+      </div>
+
+      <button
+        class="close"
+        onclick="closeModal()"
+      >
+        ×
+      </button>
+
+    </div>
+
+    <div class="checklist">
+
+      <div class="check">
+        <span>Account</span>
+        <b>${esc(state.user.name)}</b>
+      </div>
+
+      <div class="check">
+        <span>Portal</span>
+        <b>${roleName(state.user.role)}</b>
+      </div>
+
+      <div class="check">
+        <span>Email</span>
+        <b>${esc(state.user.email)}</b>
+      </div>
+
+      <div class="check">
+        <span>Notifications</span>
+        <span class="badge green">Enabled</span>
+      </div>
+
+    </div>
+  `);
+
+}
+
+
+async function switchRole() {
+
+  try {
+
+    await api('/api/logout', {
+      method: 'POST'
+    });
+
+  } catch (err) {}
+
+  state.user = null;
+  state.selected = null;
+  state.page = 'dashboard';
+
+  closeProfileMenu();
+
+  renderLogin('admin');
+}
+
+
+async function logoutUser() {
+
+  try {
+
+    await api('/api/logout', {
+      method: 'POST'
+    });
+
+  } catch (err) {}
+
+  state.user = null;
+  state.selected = null;
+  state.page = 'dashboard';
+
+  closeProfileMenu();
+
+  renderLogin('admin');
+}
+
+
+/* =========================================================
+   LAYOUT
+========================================================= */
+
+function layout(content) {
+
+  const u = state.user;
+
+  const nav =
+    u.role === 'admin'
+      ? [
+          ['dashboard', 'Dashboard', '▦'],
+          ['projects', 'Projects', '▣'],
+          ['homes', 'Homes', '⌂'],
+          ['updates', 'Daily Updates', '↻'],
+          ['custom', 'Customizations', '✦'],
+          ['issues', 'Issues & Risks', '!'],
+          ['tasks', 'Tasks', '✓'],
+          ['reports', 'Reports', '▤'],
+          ['team', 'Team', '♙']
+        ]
+      : u.role === 'site_manager'
+      ? [
+          ['dashboard', 'Site Dashboard', '▦'],
+          ['homes', 'My Site Homes', '⌂'],
+          ['updates', 'Daily Updates', '↻'],
+          ['tasks', 'Tasks', '✓'],
+          ['issues', 'Issues & Risks', '!']
+        ]
+      : [
+          ['my-home', 'My Home', '⌂'],
+          ['updates', 'Updates & Photos', '↻'],
+          ['custom', 'My Customizations', '✦'],
+          ['handover', 'Handover', '✓']
+        ];
+
+
+  app.innerHTML = `
+
+    <div class="app-shell">
+
+      <aside class="sidebar">
+
+        <div class="brand">
+
+          <div class="brandmark">
+            A
+          </div>
+
+          <span>
+            BuildTrack
+          </span>
+
+        </div>
+
+
+        <div class="role-pill">
+          ${roleName(u.role)} · ${esc(u.name)}
+        </div>
+
+
+        <nav class="nav">
+
+          ${nav.map(n => `
+            <button
+              class="${state.page === n[0] ? 'active' : ''}"
+              data-page="${n[0]}"
+            >
+              ${n[2]}
+              <span>${n[1]}</span>
+            </button>
+          `).join('')}
+
+        </nav>
+
+
+        <div class="sidebar-bottom">
+
+          <button
+            class="logout"
+            id="sidebarLogout"
+          >
+            ⇥
+            <span>Sign out</span>
+          </button>
+
+        </div>
+
+      </aside>
+
+
+      <main class="main">
+
+        <header class="topbar">
+
+          <div class="top-title">
+            ${pageTitle()}
+          </div>
+
+
+          <div class="profile-wrap">
+
+            <button
+              class="user-mini profile-button"
+              id="profileButton"
+              type="button"
+            >
+
+              <div style="text-align:right">
+
+                <b>
+                  ${esc(u.name)}
+                </b>
+
+                <div class="small-note">
+                  ${roleName(u.role)}
+                </div>
+
+              </div>
+
+
+              <div class="avatar">
+                ${esc(u.name?.[0] || 'A')}
+              </div>
+
+            </button>
+
+
+            <div
+              class="profile-menu"
+              id="profileMenu"
+            >
+
+              <div class="profile-menu-head">
+
+                <div class="avatar large">
+                  ${esc(u.name?.[0] || 'A')}
+                </div>
+
+                <div>
+
+                  <b>
+                    ${esc(u.name)}
+                  </b>
+
+                  <div class="small-note">
+                    ${roleName(u.role)}
+                  </div>
+
+                </div>
+
+              </div>
+
+
+              <button
+                type="button"
+                data-profile-action="profile"
+              >
+                👤
+                <span>Profile</span>
+              </button>
+
+
+              <button
+                type="button"
+                data-profile-action="settings"
+              >
+                ⚙️
+                <span>Settings</span>
+              </button>
+
+
+              <button
+                type="button"
+                data-profile-action="switch"
+              >
+                🔄
+                <span>Switch Role</span>
+              </button>
+
+
+              <div class="profile-divider"></div>
+
+
+              <button
+                type="button"
+                class="profile-logout"
+                data-profile-action="logout"
+              >
+                🚪
+                <span>Logout</span>
+              </button>
+
+            </div>
+
+          </div>
+
+        </header>
+
+
+        <section class="content">
+          ${content}
+        </section>
+
+      </main>
+
+
+      <div class="mobile-nav">
+
+        ${nav.slice(0, 5).map(n => `
+          <button data-page="${n[0]}">
+            ${n[2]}<br>
+            ${n[1]}
+          </button>
+        `).join('')}
+
+      </div>
+
+    </div>
+  `;
+
+
+  document
+    .querySelectorAll('[data-page]')
+    .forEach(x => {
+
+      x.onclick = async () => {
+
+        state.page = x.dataset.page;
+        state.selected = null;
+
+        await load();
+
+      };
+
+    });
+
+
+  $('#sidebarLogout').onclick = async () => {
+
+    if (
+      confirm('Are you sure you want to logout?')
+    ) {
+      await logoutUser();
+    }
+
+  };
+
+
+  $('#profileButton').onclick = e => {
+
+    e.stopPropagation();
+
+    const menu = $('#profileMenu');
+
+    if (menu) {
+      menu.classList.toggle('open');
+    }
+
+  };
+
+
+  document
+    .querySelectorAll('[data-profile-action]')
+    .forEach(btn => {
+
+      btn.onclick = async e => {
+
+        e.stopPropagation();
+
+        const action =
+          btn.dataset.profileAction;
+
+        closeProfileMenu();
+
+        if (action === 'profile') {
+          showProfile();
+        }
+
+        if (action === 'settings') {
+          showSettings();
+        }
+
+        if (action === 'switch') {
+
+          if (
+            confirm(
+              'Switch role and return to the login screen?'
+            )
+          ) {
+            await switchRole();
+          }
+
+        }
+
+        if (action === 'logout') {
+
+          if (
+            confirm(
+              'Are you sure you want to logout?'
+            )
+          ) {
+            await logoutUser();
+          }
+
+        }
+
+      };
+
+    });
+
+}
+
+
+/* =========================================================
+   CLOSE PROFILE WHEN CLICKING OUTSIDE
+========================================================= */
+
+document.addEventListener('click', e => {
+
+  if (
+    !e.target.closest('#profileButton') &&
+    !e.target.closest('#profileMenu')
+  ) {
+    closeProfileMenu();
+  }
+
+});
+
+
+/* =========================================================
+   PAGE TITLE
+========================================================= */
+
+function pageTitle() {
+
+  const map = {
+
+    dashboard:
+      state.user.role === 'admin'
+        ? 'Portfolio Overview'
+        : state.user.role === 'site_manager'
+        ? 'Site Operations'
+        : 'My Home',
+
+    projects: 'Projects',
+
+    homes: 'Homes & Units',
+
+    updates: 'Daily Site Updates',
+
+    custom:
+      'Customizations & Change Requests',
+
+    issues:
+      'Issues & Risks',
+
+    tasks:
+      'Tasks & Schedule',
+
+    reports:
+      'Reports & Delivery',
+
+    team:
+      'Team & Roles',
+
+    'my-home':
+      'My Home',
+
+    handover:
+      'Handover Center',
+
+    unit:
+      'Home Details'
+
+  };
+
+  return map[state.page] || 'BuildTrack';
+}
+
+
+/* =========================================================
+   DASHBOARD
+========================================================= */
+
+function statCards(d) {
+
+  const s = d.stats;
+
+  return `
+
+    <div class="grid grid4">
+
+      <div class="card stat">
+
+        <div>
+
+          <div class="label">
+            ${state.user.role === 'customer'
+              ? 'Homes'
+              : 'Projects'}
+          </div>
+
+          <h3>${s.projects}</h3>
+
+          <div class="small-note">
+            Visible to you
+          </div>
+
+        </div>
+
+        <div class="iconbox">
+          ▦
+        </div>
+
+      </div>
+
+
+      <div class="card stat">
+
+        <div>
+
+          <div class="label">
+            Units / Homes
+          </div>
+
+          <h3>${s.units}</h3>
+
+          <div class="small-note">
+            Tracked individually
+          </div>
+
+        </div>
+
+        <div class="iconbox">
+          ⌂
+        </div>
+
+      </div>
+
+
+      <div class="card stat">
+
+        <div>
+
+          <div class="label">
+            Average Progress
+          </div>
+
+          <h3>${s.avg}%</h3>
+
+          <div class="progress">
+            <span style="width:${s.avg}%"></span>
+          </div>
+
+        </div>
+
+        <div class="iconbox">
+          ↗
+        </div>
+
+      </div>
+
+
+      <div class="card stat">
+
+        <div>
+
+          <div class="label">
+            Open Issues
+          </div>
+
+          <h3>${s.issues}</h3>
+
+          <div class="small-note">
+            Affecting delivery
+          </div>
+
+        </div>
+
+        <div class="iconbox">
+          !
+        </div>
+
+      </div>
+
+    </div>
+
+  `;
+}
+
+
+async function dashboard() {
+
+  const d = await api('/api/dashboard');
+
+  return `
+
+    ${statCards(d)}
+
+    <div style="height:18px"></div>
+
+    <div class="two-col">
+
+      <div class="card">
+
+        <div class="section-title">
+
+          <h2>
+            ${
+              state.user.role === 'site_manager'
+                ? 'My Site Progress'
+                : 'Project Portfolio'
+            }
+          </h2>
+
+          <button
+            class="btn small"
+            onclick="state.page='homes';load()"
+          >
+            View homes
+          </button>
+
+        </div>
+
+
+        <div class="grid grid2">
+
+          ${
+            state.projects.length
+              ? state.projects.map(p => `
+
+                <div class="project-card">
+
+                  <div>
+
+                    <h3>
+                      ${esc(p.name)}
+                    </h3>
+
+                    <div class="small-note">
+                      ${esc(p.type)}
+                      ·
+                      ${esc(p.location || '')}
+                    </div>
+
+                  </div>
+
+
+                  <div class="project-meta">
+
+                    <span>
+                      ${p.unit_count} units
+                    </span>
+
+                    <span>
+                      ${p.avg_progress || 0}%
+                    </span>
+
+                  </div>
+
+
+                  <div class="progress">
+                    <span
+                      style="width:${p.avg_progress || 0}%"
+                    ></span>
+                  </div>
+
+
+                  <div class="project-meta">
+
+                    <span>
+                      Manager:
+                      ${esc(p.manager_name || 'Unassigned')}
+                    </span>
+
+                    <span>
+                      ${esc(p.status)}
+                    </span>
+
+                  </div>
+
+                </div>
+
+              `).join('')
+              : `<div class="empty">
+                  No projects found.
+                 </div>`
+          }
+
+        </div>
+
+      </div>
+
+
+      <div class="card">
+
+        <div class="section-title">
+
+          <h2>
+            Delivery watch
+          </h2>
+
+        </div>
+
+
+        ${
+          state.units
+            .slice()
+            .sort((a, b) =>
+              String(a.eta).localeCompare(String(b.eta))
+            )
+            .slice(0, 5)
+            .map(u => `
+
+              <div class="check">
+
+                <div>
+
+                  <b>
+                
